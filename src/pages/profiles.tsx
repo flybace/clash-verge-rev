@@ -16,7 +16,7 @@ import {
   RefreshRounded,
   TextSnippetOutlined,
 } from '@mui/icons-material'
-import { Box, Button, Divider, Grid, IconButton, Stack } from '@mui/material'
+import { Box, Button, Checkbox, Divider, Grid, IconButton, ListItemText, MenuItem, Select, Stack } from '@mui/material'
 import { TauriEvent } from '@tauri-apps/api/event'
 import { readText } from '@tauri-apps/plugin-clipboard-manager'
 import { readTextFile } from '@tauri-apps/plugin-fs'
@@ -47,6 +47,7 @@ import {
   enhanceProfiles,
   getRuntimeLogs,
   importProfile,
+  listScriptPresets,
   reorderProfile,
   updateProfile,
 } from '@/services/cmds'
@@ -92,6 +93,14 @@ const ProfilePage = () => {
     string | null
   >(null)
   const [loading, setLoading] = useState(false)
+  const [importPresets, setImportPresets] = useState<string[]>([])
+  const [allPresets, setAllPresets] = useState<IScriptPreset[]>([])
+
+  useEffect(() => {
+    listScriptPresets()
+      .then(setAllPresets)
+      .catch(() => setAllPresets([]))
+  }, [])
   const [timerUpdateRevisions, setTimerUpdateRevisions] = useState<
     Map<string, number>
   >(() => new Map())
@@ -227,7 +236,10 @@ const ProfilePage = () => {
       await performRobustRefresh()
     }
     try {
-      await importProfile(url)
+      await importProfile(
+        url,
+        importPresets.length > 0 ? { presets: importPresets } : undefined,
+      )
       await handleImportSuccess('shared.feedback.notifications.importSuccess')
     } catch (initialErr) {
       console.warn('[订阅导入] 首次导入失败:', initialErr)
@@ -243,6 +255,7 @@ const ProfilePage = () => {
         await importProfile(url, {
           with_proxy: false,
           self_proxy: true,
+          ...(importPresets.length > 0 ? { presets: importPresets } : {}),
         })
         await handleImportSuccess(
           'shared.feedback.notifications.importWithClashProxy',
@@ -880,6 +893,39 @@ const ProfilePage = () => {
         >
           {t('profiles.page.actions.import')}
         </Button>
+        {allPresets.length > 0 && (
+          <Select
+            multiple
+            size="small"
+            displayEmpty
+            value={importPresets}
+            onChange={(e) =>
+              setImportPresets(
+                typeof e.target.value === 'string'
+                  ? []
+                  : (e.target.value as string[]),
+              )
+            }
+            renderValue={(selected) =>
+              selected.length === 0
+                ? (t('profiles.page.importForm.presetPlaceholder') as string)
+                : t('profiles.page.importForm.presetSelected', {
+                    count: selected.length,
+                  })
+            }
+            sx={{ maxWidth: 180, borderRadius: '6px' }}
+          >
+            {allPresets.map((p) => (
+              <MenuItem key={p.uid} value={p.uid}>
+                <Checkbox
+                  size="small"
+                  checked={importPresets.includes(p.uid)}
+                />
+                <ListItemText primary={p.name} />
+              </MenuItem>
+            ))}
+          </Select>
+        )}
         <Button
           variant="contained"
           size="small"

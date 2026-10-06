@@ -104,6 +104,7 @@ pub mod profile;
 pub mod proxy;
 pub mod runtime;
 pub mod save_profile;
+pub mod script_presets;
 pub mod service;
 pub mod system;
 pub mod uwp;

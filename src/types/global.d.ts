@@ -252,6 +252,15 @@ interface IProfileOption {
   rules?: string
   proxies?: string
   groups?: string
+  /** 挂载的脚本预设 uid 列表（按顺序执行） */
+  presets?: string[]
+}
+
+/** 脚本预设（设置页管理，可挂载到订阅） */
+interface IScriptPreset {
+  uid: string
+  name: string
+  script: string
 }
 
 interface IProfilesConfig {

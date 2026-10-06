@@ -402,6 +402,7 @@ export interface TranslationResources {
             allowAutoUpdate: string
             description: string
             httpTimeout: string
+            scriptPresets: string
             subscriptionUrl: string
             type: string
             updateInterval: string
@@ -493,6 +494,8 @@ export interface TranslationResources {
             paste: string
           }
           placeholder: string
+          presetPlaceholder: string
+          presetSelected: string
         }
         title: string
       }
@@ -1258,6 +1261,20 @@ export interface TranslationResources {
           telegram: string
         }
         actionsGroupLabel: string
+        title: string
+      }
+      scriptPresets: {
+        editTitle: string
+        empty: string
+        feedback: {
+          nameRequired: string
+        }
+        fields: {
+          name: string
+        }
+        hint: string
+        lines: string
+        newTitle: string
         title: string
       }
       sections: {

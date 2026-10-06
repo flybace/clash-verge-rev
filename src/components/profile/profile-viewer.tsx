@@ -1,12 +1,16 @@
 import {
   Box,
+  Checkbox,
   FormControl,
+  FormControlLabel,
+  FormGroup,
   InputAdornment,
   InputLabel,
   MenuItem,
   Select,
   styled,
   TextField,
+  Typography,
 } from '@mui/material'
 import { useLockFn } from 'ahooks'
 import type { Ref } from 'react'
@@ -16,7 +20,11 @@ import { useTranslation } from 'react-i18next'
 
 import { BaseDialog, Switch } from '@/components/base'
 import { useProfiles } from '@/hooks/use-profiles'
-import { createProfile, patchProfile } from '@/services/cmds'
+import {
+  createProfile,
+  listScriptPresets,
+  patchProfile,
+} from '@/services/cmds'
 import { showNotice } from '@/services/notice-service'
 import { version } from '@root/package.json'
 
@@ -42,6 +50,14 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
   const [openType, setOpenType] = useState<'new' | 'edit'>('new')
   const [loading, setLoading] = useState(false)
   const { profiles } = useProfiles()
+  const [scriptPresets, setScriptPresets] = useState<IScriptPreset[]>([])
+
+  useEffect(() => {
+    if (!open) return
+    listScriptPresets()
+      .then(setScriptPresets)
+      .catch(() => setScriptPresets([]))
+  }, [open])
 
   const fileDataRef = useRef<string | null>(null)
 
@@ -432,6 +448,48 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
               </StyledBox>
             )}
           />
+
+          {scriptPresets.length > 0 && (
+            <Controller
+              name="option.presets"
+              control={control}
+              render={({ field }) => {
+                const selected: string[] = field.value ?? []
+                const toggle = (uid: string) => {
+                  const next = selected.includes(uid)
+                    ? selected.filter((u) => u !== uid)
+                    : [...selected, uid]
+                  // 保持预设列表顺序
+                  const ordered = scriptPresets
+                    .map((p) => p.uid)
+                    .filter((u) => next.includes(u))
+                  field.onChange(ordered.length > 0 ? ordered : undefined)
+                }
+                return (
+                  <Box sx={{ mt: 1, mb: 1 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                      {t('profiles.modals.profileForm.fields.scriptPresets')}
+                    </Typography>
+                    <FormGroup>
+                      {scriptPresets.map((p) => (
+                        <FormControlLabel
+                          key={p.uid}
+                          control={
+                            <Checkbox
+                              size="small"
+                              checked={selected.includes(p.uid)}
+                              onChange={() => toggle(p.uid)}
+                            />
+                          }
+                          label={p.name}
+                        />
+                      ))}
+                    </FormGroup>
+                  </Box>
+                )
+              }}
+            />
+          )}
         </>
       )}
     </BaseDialog>

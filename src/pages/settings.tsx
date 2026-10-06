@@ -8,6 +8,7 @@ import SettingClash from '@/components/setting/setting-clash'
 import SettingSystem from '@/components/setting/setting-system'
 import SettingVergeAdvanced from '@/components/setting/setting-verge-advanced'
 import SettingVergeBasic from '@/components/setting/setting-verge-basic'
+import { SettingScriptPresets } from '@/components/setting/mods/setting-script-presets'
 import { showNotice } from '@/services/notice-service'
 import { useThemeMode } from '@/services/states'
 import { openExternalUrl } from '@/utils/open-external-url'
@@ -103,6 +104,15 @@ const SettingPage = () => {
             }}
           >
             <SettingVergeBasic onError={onError} />
+          </Box>
+          <Box
+            sx={{
+              borderRadius: 2,
+              marginBottom: 1.5,
+              backgroundColor: isDark ? '#282a36' : '#ffffff',
+            }}
+          >
+            <SettingScriptPresets />
           </Box>
           <Box
             sx={{

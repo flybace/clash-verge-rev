@@ -112,6 +112,10 @@ pub struct PrfOption {
     pub proxies: Option<String>,
 
     pub groups: Option<String>,
+
+    /// 挂载的脚本预设 uid 列表（设置页预先配置），按顺序执行
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub presets: Option<Vec<String>>,
 }
 
 impl PrfOption {
@@ -132,6 +136,20 @@ impl PrfOption {
                 result.proxies = b_ref.proxies.clone().or(result.proxies);
                 result.groups = b_ref.groups.clone().or(result.groups);
                 result.timeout_seconds = b_ref.timeout_seconds.or(result.timeout_seconds);
+                result.presets = match (&result.presets, &b_ref.presets) {
+                    (Some(a), Some(b)) => {
+                        let mut merged = a.clone();
+                        for uid in b {
+                            if !merged.contains(uid) {
+                                merged.push(uid.clone());
+                            }
+                        }
+                        Some(merged)
+                    }
+                    (Some(a), None) => Some(a.clone()),
+                    (None, Some(b)) => Some(b.clone()),
+                    (None, None) => None,
+                };
                 Some(result)
             }
             (Some(a_ref), None) => Some(a_ref.clone()),

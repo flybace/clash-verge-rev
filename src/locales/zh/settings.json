@@ -712,5 +712,19 @@
       "installing": "安装服务中...",
       "uninstalling": "卸载服务中..."
     }
+  },
+  "scriptPresets": {
+    "title": "脚本预设",
+    "hint": "预先配置覆写脚本，在新增/编辑订阅时可多选挂载，按选择顺序执行。",
+    "empty": "暂无预设，点击右上角新建。",
+    "lines": "{count} 行",
+    "newTitle": "新建脚本预设",
+    "editTitle": "编辑脚本预设",
+    "fields": {
+      "name": "预设名称"
+    },
+    "feedback": {
+      "nameRequired": "请填写预设名称"
+    }
   }
 }

@@ -285,6 +285,20 @@ export async function autoDetectListIgnored() {
   return invoke<string[]>('auto_detect_list_ignored')
 }
 
+/* 脚本预设 */
+
+export async function listScriptPresets() {
+  return invoke<IScriptPreset[]>('list_script_presets')
+}
+
+export async function saveScriptPreset(preset: IScriptPreset) {
+  return invoke<IScriptPreset>('save_script_preset', { preset })
+}
+
+export async function deleteScriptPreset(uid: string) {
+  return invoke<void>('delete_script_preset', { uid })
+}
+
 export interface CoreUpgradeReport {
   /** False when the managed core was already at the latest version. */
   upgraded: boolean

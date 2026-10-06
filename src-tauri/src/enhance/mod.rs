@@ -58,6 +58,8 @@ struct ProfileItems {
     global_merge: ChainItem,
     global_script: ChainItem,
     profile_name: String,
+    /// 当前订阅挂载的脚本预设 uid 列表（按选择顺序执行）
+    preset_uids: Vec<String>,
 }
 
 impl Default for ProfileItems {
@@ -93,6 +95,7 @@ impl Default for ProfileItems {
                 uid: "Script".into(),
                 data: ChainType::Script(tmpl::ITEM_SCRIPT.into()),
             },
+            preset_uids: Default::default(),
         }
     }
 }
@@ -239,6 +242,11 @@ async fn collect_profile_items(profiles: &IProfiles) -> Result<ProfileItems> {
         global_merge,
         global_script,
         profile_name: name,
+        preset_uids: current_item
+            .option
+            .as_ref()
+            .and_then(|o| o.presets.clone())
+            .unwrap_or_default(),
     })
 }
 
@@ -278,10 +286,6 @@ async fn process_global_items(
         );
         result_map.insert(global_script.uid, logs);
     }
-
-    // 新域名自动检测：在全局脚本之后合并 auto-detect 规则文件（前置最高优先级），
-    // 并确保目标分组存在。规则文件不存在或为空时无操作。
-    crate::cmd::auto_detect::apply_auto_detect_rules(&mut config);
 
     (config, exists_keys, result_map)
 }
@@ -585,6 +589,40 @@ async fn process_profile_items(
                 .map(discarded_note),
         );
         result_map.insert(script_item.uid, logs);
+    }
+
+    (config, exists_keys, result_map)
+}
+
+/// 按挂载顺序执行订阅的脚本预设（设置页预先配置）。
+/// 预设脚本与全局扩展脚本同格式，异常时记日志并跳过，不中断后续预设。
+async fn process_presets(
+    mut config: Mapping,
+    preset_uids: &[String],
+    mut exists_keys: Vec<String>,
+    mut result_map: HashMap<String, ResultLog>,
+    profile_name: &String,
+    authoritative: &AuthoritativeFields,
+) -> (Mapping, Vec<String>, HashMap<String, ResultLog>) {
+    for uid in preset_uids {
+        let Some(preset) = crate::config::script_presets::get_preset(uid) else {
+            continue;
+        };
+        if preset.script.trim().is_empty() {
+            continue;
+        }
+        let before = authoritative.current(&config);
+        let (res_config, changed_keys, mut logs) =
+            use_script(preset.script, config, profile_name.clone()).await;
+        exists_keys.extend(changed_keys);
+        config = res_config;
+        logs.extend(
+            authoritative
+                .overridden(&before, &authoritative.current(&config))
+                .into_iter()
+                .map(discarded_note),
+        );
+        result_map.insert(format!("preset:{uid}"), logs);
     }
 
     (config, exists_keys, result_map)
@@ -916,6 +954,7 @@ pub async fn enhance(
     let global_merge = profile.global_merge;
     let global_script = profile.global_script;
     let profile_name = profile.profile_name;
+    let preset_uids = profile.preset_uids;
 
     let result_map = HashMap::new();
 
@@ -962,6 +1001,21 @@ pub async fn enhance(
         &authoritative,
     )
     .await;
+
+    // 订阅挂载的脚本预设：按选择顺序执行（在订阅自身脚本之后）
+    let (mut config, exists_keys, result_map) = process_presets(
+        config,
+        &preset_uids,
+        exists_keys,
+        result_map,
+        &profile_name,
+        &authoritative,
+    )
+    .await;
+
+    // 新域名自动检测：最后合并 auto-detect 规则文件（前置最高优先级），
+    // 并确保目标分组存在。规则文件不存在或为空时无操作。
+    crate::cmd::auto_detect::apply_auto_detect_rules(&mut config);
 
     notify_discarded_keys(authoritative.overridden(&authoritative, &authoritative.current(&config)));
     let config = authoritative.enforce(config);

@@ -712,5 +712,19 @@
       "installing": "Installing Service...",
       "uninstalling": "Uninstalling Service..."
     }
+  },
+  "scriptPresets": {
+    "title": "Script Presets",
+    "hint": "Pre-configure override scripts; select multiple when adding/editing a subscription, executed in selection order.",
+    "empty": "No presets yet. Click New on the top right.",
+    "lines": "{count} lines",
+    "newTitle": "New Script Preset",
+    "editTitle": "Edit Script Preset",
+    "fields": {
+      "name": "Preset name"
+    },
+    "feedback": {
+      "nameRequired": "Preset name is required"
+    }
   }
 }
