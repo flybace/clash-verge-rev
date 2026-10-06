@@ -255,6 +255,36 @@ export async function restartCore() {
   return invoke<void>('restart_core')
 }
 
+/* 新域名自动检测 */
+
+export async function autoDetectProbeDomain(domain: string) {
+  return invoke<boolean>('auto_detect_probe_domain', { domain })
+}
+
+export async function autoDetectExpandDomain(domain: string) {
+  return invoke<string[]>('auto_detect_expand_domain', { domain })
+}
+
+export async function autoDetectAddRules(lines: string[]) {
+  return invoke<number>('auto_detect_add_rules', { lines })
+}
+
+export async function autoDetectListRules() {
+  return invoke<string[]>('auto_detect_list_rules')
+}
+
+export async function autoDetectRemoveRule(line: string) {
+  return invoke<boolean>('auto_detect_remove_rule', { line })
+}
+
+export async function autoDetectIgnoreDomain(domain: string) {
+  return invoke<void>('auto_detect_ignore_domain', { domain })
+}
+
+export async function autoDetectListIgnored() {
+  return invoke<string[]>('auto_detect_list_ignored')
+}
+
 export interface CoreUpgradeReport {
   /** False when the managed core was already at the latest version. */
   upgraded: boolean

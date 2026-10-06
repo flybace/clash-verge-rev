@@ -31,6 +31,7 @@ import {
   ConnectionDetail,
   ConnectionDetailRef,
 } from '@/components/connection/connection-detail'
+import { AutoDetectPanel } from '@/components/connection/auto-detect-panel'
 import { ConnectionRowItem } from '@/components/connection/connection-row-item'
 import {
   getConnectionStartTime,
@@ -38,6 +39,7 @@ import {
 } from '@/components/connection/connection-row-view'
 import { ConnectionTable } from '@/components/connection/connection-table'
 import { useConnectionData } from '@/hooks/use-connection-data'
+import { useAutoDetect } from '@/hooks/use-auto-detect'
 import { useConnectionSetting } from '@/hooks/use-connection-setting'
 import { useTrafficData } from '@/hooks/use-traffic-data'
 import { useVisibility } from '@/hooks/use-visibility'
@@ -109,6 +111,11 @@ const ConnectionsPage = () => {
     connectionsType === 'active'
       ? (connections?.activeConnections ?? EMPTY_CONNECTIONS)
       : (connections?.closedConnections ?? EMPTY_CONNECTIONS)
+
+  // 新域名自动检测：只监听活跃连接
+  const { enabled, setEnabled, entries, ignoreDomain } = useAutoDetect(
+    connections?.activeConnections ?? EMPTY_CONNECTIONS,
+  )
 
   const filterConn = useMemo(() => {
     const orderFunc = orderFunctionMap[curOrderOpt]
@@ -213,6 +220,12 @@ const ConnectionsPage = () => {
         </Box>
       }
     >
+      <AutoDetectPanel
+        enabled={enabled}
+        setEnabled={setEnabled}
+        entries={entries}
+        ignoreDomain={ignoreDomain}
+      />
       <Box
         sx={{
           pt: 1,

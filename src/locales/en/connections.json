@@ -30,5 +30,18 @@
       "title": "Columns",
       "dragHandle": "Drag handle"
     }
+  },
+  "autoDetect": {
+    "title": "Auto-detect new domains",
+    "hint": "When enabled, new domains hitting MATCH (no rule matched) are probed directly; if direct access fails they are treated as proxy-needed, expanded and auto-added to the proxy group. Heuristic; use the button on the right to ignore false positives.",
+    "detected": "{count} found",
+    "ignore": "Ignore this domain (removes added rules, never auto-add again)",
+    "status": {
+      "queued": "Queued",
+      "probing": "Probing",
+      "direct-ok": "Direct OK",
+      "added": "Added to proxy group",
+      "failed": "Probe failed"
+    }
   }
 }

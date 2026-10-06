@@ -279,6 +279,10 @@ async fn process_global_items(
         result_map.insert(global_script.uid, logs);
     }
 
+    // 新域名自动检测：在全局脚本之后合并 auto-detect 规则文件（前置最高优先级），
+    // 并确保目标分组存在。规则文件不存在或为空时无操作。
+    crate::cmd::auto_detect::apply_auto_detect_rules(&mut config);
+
     (config, exists_keys, result_map)
 }
 

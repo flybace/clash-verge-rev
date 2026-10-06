@@ -4,6 +4,19 @@
 export interface TranslationResources {
   translation: {
     connections: {
+      autoDetect: {
+        detected: string
+        hint: string
+        ignore: string
+        status: {
+          added: string
+          'direct-ok': string
+          failed: string
+          probing: string
+          queued: string
+        }
+        title: string
+      }
       components: {
         actions: {
           active: string
