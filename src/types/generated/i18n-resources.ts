@@ -25,6 +25,8 @@ export interface TranslationResources {
           'direct-ok': string
           failed: string
           probing: string
+          'proxy-failed': string
+          'proxy-testing': string
           queued: string
         }
         title: string

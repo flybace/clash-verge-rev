@@ -31,6 +31,8 @@ export const translationKeys = [
   'connections.autoDetect.status.direct-ok',
   'connections.autoDetect.status.added',
   'connections.autoDetect.status.failed',
+  'connections.autoDetect.status.proxy-testing',
+  'connections.autoDetect.status.proxy-failed',
   'connections.autoDetect.manual.placeholder',
   'connections.autoDetect.manual.inputRequired',
   'connections.autoDetect.manual.probe',

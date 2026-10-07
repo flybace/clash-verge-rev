@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { delayProxyByName } from 'tauri-plugin-mihomo-api'
 
 import {
   autoDetectAddRules,
@@ -9,18 +10,24 @@ import {
   autoDetectProbeDomain,
   restartCore,
 } from '@/services/cmds'
+import type { ProxyViewV1 } from '@/types/proxy-view'
+import { classifyDelay } from '@/utils/delay'
 
 export type AutoDetectStatus =
   | 'queued'
   | 'probing'
   | 'direct-ok'
+  | 'proxy-testing'
   | 'added'
+  | 'proxy-failed'
   | 'failed'
 
 export interface AutoDetectEntry {
   domain: string
   status: AutoDetectStatus
   added: number
+  /** 实际命中的代理节点名（added 时） */
+  node?: string
   updatedAt: number
 }
 
@@ -40,17 +47,23 @@ const loadEnabled = (): boolean => {
 }
 
 /**
- * 新域名自动检测：监听命中 MATCH（无规则覆盖）的新域名，
- * 直连探测失败则判定需代理，扩展相关域名后自动加入 Proxy 分组。
- * 开关状态持久化到 localStorage，切换页面/重启后保持。
+ * 新域名自动检测：监听命中 MATCH（无规则覆盖）的新域名。
+ * 直连探测失败后，自动用代理逐个试出哪个节点能通，规则直接指向该节点；
+ * 所有代理都打不开则不加规则。开关状态持久化到 localStorage。
  */
-export function useAutoDetect(active: IConnectionsItem[]) {
+export function useAutoDetect(
+  active: IConnectionsItem[],
+  proxyView: ProxyViewV1 | undefined,
+) {
   const [enabled, setEnabledState] = useState<boolean>(loadEnabled)
   const [entries, setEntries] = useState<AutoDetectEntry[]>([])
   const seenRef = useRef<Set<string>>(new Set())
   const ignoredRef = useRef<Set<string>>(new Set())
   const queueRef = useRef<string[]>([])
   const busyRef = useRef(false)
+  // proxyView 引用（避免闭包过期）
+  const proxyViewRef = useRef(proxyView)
+  proxyViewRef.current = proxyView
 
   const upsert = useCallback(
     (domain: string, patch: Partial<AutoDetectEntry>) => {
@@ -74,6 +87,41 @@ export function useAutoDetect(active: IConnectionsItem[]) {
     [],
   )
 
+  /** 代理可用性检测：用 Mihomo 延迟测试 API（自定义 URL）逐个试节点，
+   * 返回第一个能打开该域名的节点名；都打不开返回 null。
+   * 当前选中的节点优先试，最多试 6 个，单个 8 秒超时。 */
+  const findWorkingNode = useCallback(
+    async (domain: string): Promise<string | null> => {
+      const view = proxyViewRef.current
+      const proxyGroup = view?.groups.find((g) => g.name === 'Proxy')
+      if (!proxyGroup) return null
+      const nodeNames = proxyGroup.members
+        .filter((m) => m.kind === 'node')
+        .map((m) => m.name)
+      if (nodeNames.length === 0) return null
+      // 当前选中的节点优先
+      const current = proxyGroup.now
+      const ordered =
+        current && nodeNames.includes(current)
+          ? [current, ...nodeNames.filter((n) => n !== current)]
+          : nodeNames
+      const testUrl = `https://${domain}/`
+      const timeout = 8000
+      for (const node of ordered.slice(0, 6)) {
+        try {
+          const result = await delayProxyByName(node, testUrl, timeout)
+          if (classifyDelay(result.delay, timeout) === 'measured') {
+            return node
+          }
+        } catch {
+          continue
+        }
+      }
+      return null
+    },
+    [],
+  )
+
   const processOne = useCallback(
     async (domain: string): Promise<number> => {
       upsert(domain, { status: 'probing' })
@@ -83,16 +131,24 @@ export function useAutoDetect(active: IConnectionsItem[]) {
           upsert(domain, { status: 'direct-ok' })
           return 0
         }
-        const lines = await autoDetectExpandDomain(domain)
+        // 直连失败：自动用代理逐个试，找出能通的节点
+        upsert(domain, { status: 'proxy-testing' })
+        const node = await findWorkingNode(domain)
+        if (!node) {
+          upsert(domain, { status: 'proxy-failed' })
+          return 0
+        }
+        const domains = await autoDetectExpandDomain(domain)
+        const lines = domains.map((d) => `DOMAIN-SUFFIX,${d},${node}`)
         const added = await autoDetectAddRules(lines)
-        upsert(domain, { status: 'added', added })
+        upsert(domain, { status: 'added', added, node })
         return added
       } catch {
         upsert(domain, { status: 'failed' })
         return 0
       }
     },
-    [upsert],
+    [upsert, findWorkingNode],
   )
 
   const pump = useCallback(async () => {

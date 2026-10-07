@@ -227,7 +227,8 @@ async fn expand_related(client: &reqwest::Client, domain: &str) -> BTreeSet<Stri
     subs
 }
 
-/// 扩展相关域名，返回待写入的规则行（`DOMAIN-SUFFIX,<host>,Proxy`）。
+/// 扩展相关域名，返回域名列表（不含规则前缀）。调用方决定目标分组后
+/// 再拼接成 `DOMAIN-SUFFIX,<host>,<target>` 规则行。
 #[tauri::command]
 pub async fn auto_detect_expand_domain(domain: String) -> CmdResult<Vec<String>> {
     let domain = normalize_domain(&domain);
@@ -236,13 +237,11 @@ pub async fn auto_detect_expand_domain(domain: String) -> CmdResult<Vec<String>>
     }
     let client = direct_client().map_err(CommandFailure::plain)?;
     let subs = expand_related(&client, &domain).await;
-    Ok(subs
-        .into_iter()
-        .map(|s| format!("DOMAIN-SUFFIX,{s},{AUTO_DETECT_GROUP}"))
-        .collect())
+    Ok(subs.into_iter().collect())
 }
 
-/// 追加规则行（自动去重、强制目标分组），返回本次新增条数。
+/// 追加规则行（自动去重）。目标分组使用调用方指定的值（不再强制改写），
+/// 仅做基本格式校验。返回本次新增条数。
 #[tauri::command]
 pub async fn auto_detect_add_rules(lines: Vec<String>) -> CmdResult<usize> {
     let mut saved = read_saved_rules();
@@ -252,11 +251,23 @@ pub async fn auto_detect_add_rules(lines: Vec<String>) -> CmdResult<usize> {
         if line.is_empty() || line.starts_with('#') {
             continue;
         }
-        let mut parts = line.split(',');
-        match (parts.next(), parts.next()) {
-            (Some("DOMAIN-SUFFIX"), Some(d)) if !d.trim().is_empty() => {
+        let mut parts = line.splitn(3, ',');
+        match (parts.next(), parts.next(), parts.next()) {
+            (Some("DOMAIN-SUFFIX"), Some(d), Some(g))
+                if !d.trim().is_empty() && !g.trim().is_empty() =>
+            {
                 let d = normalize_domain(d);
-                saved.insert(format!("DOMAIN-SUFFIX,{d},{AUTO_DETECT_GROUP}"));
+                let g = g.trim();
+                // 目标分组名基本校验，避免写坏规则
+                if g.contains([',', ' ', '\t', '\n']) {
+                    continue;
+                }
+                let mut full = format!("DOMAIN-SUFFIX,{d},{g}");
+                // 旧分组名迁移
+                if g == LEGACY_AUTO_DETECT_GROUP {
+                    full = format!("DOMAIN-SUFFIX,{d},{AUTO_DETECT_GROUP}");
+                }
+                saved.insert(full);
             }
             _ => continue,
         }

@@ -39,7 +39,9 @@ const STATUS_COLOR: Record<AutoDetectStatus, 'default' | 'info' | 'success' | 'w
   queued: 'default',
   probing: 'info',
   'direct-ok': 'success',
+  'proxy-testing': 'info',
   added: 'warning',
+  'proxy-failed': 'error',
   failed: 'error',
 }
 
@@ -196,6 +198,11 @@ export const AutoDetectPanel = ({
               {e.status === 'added' && e.added > 0 && (
                 <Typography variant="caption" color="text.secondary">
                   +{e.added}
+                </Typography>
+              )}
+              {e.status === 'added' && e.node && (
+                <Typography variant="caption" color="text.secondary">
+                  via {e.node}
                 </Typography>
               )}
               <Box sx={{ flex: 1 }} />

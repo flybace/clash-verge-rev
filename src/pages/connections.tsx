@@ -40,6 +40,7 @@ import {
 import { ConnectionTable } from '@/components/connection/connection-table'
 import { useConnectionData } from '@/hooks/use-connection-data'
 import { useAutoDetect } from '@/hooks/use-auto-detect'
+import { useProxiesData } from '@/providers/app-data-context'
 import { useConnectionSetting } from '@/hooks/use-connection-setting'
 import { useTrafficData } from '@/hooks/use-traffic-data'
 import { useVisibility } from '@/hooks/use-visibility'
@@ -112,9 +113,11 @@ const ConnectionsPage = () => {
       ? (connections?.activeConnections ?? EMPTY_CONNECTIONS)
       : (connections?.closedConnections ?? EMPTY_CONNECTIONS)
 
-  // 新域名自动检测：只监听活跃连接
+  // 新域名自动检测：只监听活跃连接；传入 proxyView 用于代理可用性检测
+  const { proxyView } = useProxiesData()
   const { enabled, setEnabled, entries, ignoreDomain } = useAutoDetect(
     connections?.activeConnections ?? EMPTY_CONNECTIONS,
+    proxyView,
   )
 
   const filterConn = useMemo(() => {
