@@ -33,14 +33,14 @@
   },
   "autoDetect": {
     "title": "Auto-detect new domains",
-    "hint": "When enabled, new domains hitting MATCH are probed directly; if direct fails, each proxy is tested to find one that works, and the rule points to it. Not added if no proxy works. Heuristic; use the button on the right to ignore false positives.",
+    "hint": "When enabled, new domains hitting MATCH are probed directly; if direct fails, proxies are tested to find working nodes, a proxy group named after the site is auto-created (select type), and rules point to it. Not added if no proxy works. Use the button on the right to ignore false positives.",
     "detected": "{count} found",
     "ignore": "Ignore this domain (removes added rules, never auto-add again)",
     "status": {
       "queued": "Queued",
       "probing": "Probing",
       "direct-ok": "Direct OK",
-      "added": "Rule added",
+      "added": "Group created",
       "failed": "Probe failed",
       "proxy-testing": "Testing proxies",
       "proxy-failed": "No proxy works"

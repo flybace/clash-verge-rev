@@ -200,9 +200,9 @@ export const AutoDetectPanel = ({
                   +{e.added}
                 </Typography>
               )}
-              {e.status === 'added' && e.node && (
+              {e.status === 'added' && e.group && (
                 <Typography variant="caption" color="text.secondary">
-                  via {e.node}
+                  → {e.group}
                 </Typography>
               )}
               <Box sx={{ flex: 1 }} />

@@ -273,6 +273,14 @@ export async function autoDetectAddManualRule(domain: string, group: string) {
   return invoke<void>('auto_detect_add_manual_rule', { domain, group })
 }
 
+export async function autoDetectAddSite(domain: string, nodes: string[]) {
+  return invoke<string>('auto_detect_add_site', { domain, nodes })
+}
+
+export async function autoDetectListSiteGroups() {
+  return invoke<Record<string, string[]>>('auto_detect_list_site_groups')
+}
+
 export async function autoDetectListRules() {
   return invoke<string[]>('auto_detect_list_rules')
 }

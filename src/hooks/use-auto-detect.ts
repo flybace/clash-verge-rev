@@ -2,8 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { delayProxyByName } from 'tauri-plugin-mihomo-api'
 
 import {
-  autoDetectAddRules,
-  autoDetectExpandDomain,
+  autoDetectAddSite,
   autoDetectIgnoreDomain,
   autoDetectListIgnored,
   autoDetectListRules,
@@ -26,8 +25,8 @@ export interface AutoDetectEntry {
   domain: string
   status: AutoDetectStatus
   added: number
-  /** 实际命中的代理节点名（added 时） */
-  node?: string
+  /** 自动创建的站点分组名（added 时） */
+  group?: string
   updatedAt: number
 }
 
@@ -88,17 +87,17 @@ export function useAutoDetect(
   )
 
   /** 代理可用性检测：用 Mihomo 延迟测试 API（自定义 URL）逐个试节点，
-   * 返回第一个能打开该域名的节点名；都打不开返回 null。
+   * 返回所有能打开该域名的节点（按延迟从低到高）；都打不开返回空数组。
    * 当前选中的节点优先试，最多试 6 个，单个 8 秒超时。 */
-  const findWorkingNode = useCallback(
-    async (domain: string): Promise<string | null> => {
+  const findWorkingNodes = useCallback(
+    async (domain: string): Promise<string[]> => {
       const view = proxyViewRef.current
       const proxyGroup = view?.groups.find((g) => g.name === 'Proxy')
-      if (!proxyGroup) return null
+      if (!proxyGroup) return []
       const nodeNames = proxyGroup.members
         .filter((m) => m.kind === 'node')
         .map((m) => m.name)
-      if (nodeNames.length === 0) return null
+      if (nodeNames.length === 0) return []
       // 当前选中的节点优先
       const current = proxyGroup.now
       const ordered =
@@ -107,17 +106,19 @@ export function useAutoDetect(
           : nodeNames
       const testUrl = `https://${domain}/`
       const timeout = 8000
+      const working: Array<{ node: string; delay: number }> = []
       for (const node of ordered.slice(0, 6)) {
         try {
           const result = await delayProxyByName(node, testUrl, timeout)
           if (classifyDelay(result.delay, timeout) === 'measured') {
-            return node
+            working.push({ node, delay: result.delay })
           }
         } catch {
           continue
         }
       }
-      return null
+      working.sort((a, b) => a.delay - b.delay)
+      return working.map((w) => w.node)
     },
     [],
   )
@@ -133,22 +134,24 @@ export function useAutoDetect(
         }
         // 直连失败：自动用代理逐个试，找出能通的节点
         upsert(domain, { status: 'proxy-testing' })
-        const node = await findWorkingNode(domain)
-        if (!node) {
+        const nodes = await findWorkingNodes(domain)
+        if (nodes.length === 0) {
           upsert(domain, { status: 'proxy-failed' })
           return 0
         }
-        const domains = await autoDetectExpandDomain(domain)
-        const lines = domains.map((d) => `DOMAIN-SUFFIX,${d},${node}`)
-        const added = await autoDetectAddRules(lines)
-        upsert(domain, { status: 'added', added, node })
+        // 按网站名自动建组（select 类型，成员为测通的节点），规则指向该组
+        const group = await autoDetectAddSite(domain, nodes)
+        const added = await autoDetectListRules()
+          .then((ls) => ls.filter((l) => l.endsWith(`,${group}`)).length)
+          .catch(() => 0)
+        upsert(domain, { status: 'added', added, group })
         return added
       } catch {
         upsert(domain, { status: 'failed' })
         return 0
       }
     },
-    [upsert, findWorkingNode],
+    [upsert, findWorkingNodes],
   )
 
   const pump = useCallback(async () => {

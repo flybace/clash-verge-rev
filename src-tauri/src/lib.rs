@@ -146,6 +146,8 @@ mod app_init {
             cmd::auto_detect::auto_detect_expand_domain,
             cmd::auto_detect::auto_detect_add_rules,
             cmd::auto_detect::auto_detect_add_manual_rule,
+            cmd::auto_detect::auto_detect_add_site,
+            cmd::auto_detect::auto_detect_list_site_groups,
             cmd::auto_detect::auto_detect_list_rules,
             cmd::auto_detect::auto_detect_remove_rule,
             cmd::auto_detect::auto_detect_ignore_domain,

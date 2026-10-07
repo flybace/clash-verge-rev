@@ -95,7 +95,11 @@ fn read_string_set(key: &str) -> BTreeSet<String> {
     out
 }
 
-fn write_state(rules: &BTreeSet<String>, ignored: &BTreeSet<String>) -> Result<()> {
+fn write_state(
+    rules: &BTreeSet<String>,
+    ignored: &BTreeSet<String>,
+    site_groups: &std::collections::BTreeMap<String, Vec<String>>,
+) -> Result<()> {
     let mut mapping = Mapping::new();
     let seq_of = |set: &BTreeSet<String>| -> Vec<Value> {
         set.iter().map(|s| Value::from(s.as_str())).collect()
@@ -104,13 +108,54 @@ fn write_state(rules: &BTreeSet<String>, ignored: &BTreeSet<String>) -> Result<(
     if !ignored.is_empty() {
         mapping.insert(Value::from("ignored"), Value::Sequence(seq_of(ignored)));
     }
+    if !site_groups.is_empty() {
+        let mut gm = Mapping::new();
+        for (name, nodes) in site_groups {
+            let seq: Vec<Value> = nodes.iter().map(|n| Value::from(n.as_str())).collect();
+            gm.insert(Value::from(name.as_str()), Value::Sequence(seq));
+        }
+        mapping.insert(Value::from("site-groups"), Value::Mapping(gm));
+    }
     let text = serde_yaml_ng::to_string(&mapping).context("序列化规则失败")?;
     std::fs::write(rules_path()?, text).context("写入规则文件失败")?;
     Ok(())
 }
 
 fn write_saved_rules(rules: &BTreeSet<String>) -> Result<()> {
-    write_state(rules, &read_ignored())
+    write_state(rules, &read_ignored(), &read_site_groups())
+}
+
+/// 读取站点分组：组名 -> 节点名列表。
+fn read_site_groups() -> std::collections::BTreeMap<String, Vec<String>> {
+    let mut out = std::collections::BTreeMap::new();
+    let path = match rules_path() {
+        Ok(p) => p,
+        Err(_) => return out,
+    };
+    let text = match std::fs::read_to_string(&path) {
+        Ok(t) => t,
+        Err(_) => return out,
+    };
+    let mapping: Mapping = match serde_yaml_ng::from_str(&text) {
+        Ok(m) => m,
+        Err(_) => return out,
+    };
+    if let Some(Value::Mapping(gm)) = mapping.get(Value::from("site-groups")) {
+        for (k, v) in gm {
+            if let (Some(name), Value::Sequence(seq)) = (k.as_str(), v) {
+                let nodes: Vec<String> = seq
+                    .iter()
+                    .filter_map(|n| n.as_str())
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+                if !nodes.is_empty() {
+                    out.insert(name.to_string(), nodes);
+                }
+            }
+        }
+    }
+    out
 }
 
 /// 直连探测用的 HTTP 客户端：显式禁用代理、限时、限制跳转。
@@ -301,6 +346,50 @@ pub async fn auto_detect_list_rules() -> CmdResult<Vec<String>> {
     Ok(read_saved_rules().into_iter().collect())
 }
 
+/// 按网站自动建组：为指定域名创建一个以网站（根域名）命名的 select 分组，
+/// 成员为测通的节点名；相关域名的规则指向该分组。返回分组名。
+/// 例如域名 `auth.muse.ai`、节点 `["日本01"]` → 分组名 `muse.ai`，
+/// 规则 `DOMAIN-SUFFIX,muse.ai,muse.ai`（及展开的子域名）。
+#[tauri::command]
+pub async fn auto_detect_add_site(domain: String, nodes: Vec<String>) -> CmdResult<String> {
+    let domain = normalize_domain(&domain);
+    let nodes: Vec<String> = nodes
+        .into_iter()
+        .map(|n| n.trim().to_string())
+        .filter(|n| !n.is_empty() && !n.contains([',', '\n']))
+        .collect();
+    if domain.is_empty() || nodes.is_empty() {
+        return Err(CommandFailure::plain("域名或节点为空"));
+    }
+    // 分组名用根域名（如 auth.muse.ai -> muse.ai），同一网站的子域名共用一组
+    let group = root_domain(&domain);
+    // 更新分组定义（合并节点，去重）
+    let mut groups = read_site_groups();
+    let entry = groups.entry(group.clone()).or_default();
+    for n in &nodes {
+        if !entry.contains(n) {
+            entry.push(n.clone());
+        }
+    }
+    // 展开相关域名，规则指向该分组
+    let client = direct_client().map_err(CommandFailure::plain)?;
+    let subs = expand_related(&client, &domain).await;
+    let mut saved = read_saved_rules();
+    // 清掉该域名旧的指向其他目标的规则（避免残留）
+    saved.retain(|l| l.split(',').nth(1) != Some(domain.as_str()));
+    for d in &subs {
+        saved.insert(format!("DOMAIN-SUFFIX,{d},{group}"));
+    }
+    write_state(&saved, &read_ignored(), &groups).map_err(CommandFailure::plain)?;
+    Ok(group)
+}
+
+/// 列出自动创建的站点分组（组名 -> 节点列表），供前端展示。
+#[tauri::command]
+pub async fn auto_detect_list_site_groups() -> CmdResult<std::collections::BTreeMap<String, Vec<String>>> {
+    Ok(read_site_groups())
+}
+
 /// 删除一条自动检测规则（用于纠正误判），返回是否确实删掉了。
 #[tauri::command]
 pub async fn auto_detect_remove_rule(line: String) -> CmdResult<bool> {
@@ -324,7 +413,7 @@ pub async fn auto_detect_ignore_domain(domain: String) -> CmdResult<()> {
     saved.retain(|l| l.split(',').nth(1) != Some(domain.as_str()));
     let mut ignored = read_ignored();
     ignored.insert(domain);
-    write_state(&saved, &ignored).map_err(CommandFailure::plain)?;
+    write_state(&saved, &ignored, &read_site_groups()).map_err(CommandFailure::plain)?;
     Ok(())
 }
 
@@ -334,23 +423,60 @@ pub async fn auto_detect_list_ignored() -> CmdResult<Vec<String>> {
     Ok(read_ignored().into_iter().collect())
 }
 
-/// enhance 管道调用：在全局脚本之后合并自动检测/手动规则（前置最高优先级）。
-/// 规则文件不存在或为空时无操作。目标分组均为已存在的分组，不再自建分组。
+/// enhance 管道调用：在全局脚本之后合并自动检测/手动规则（前置最高优先级），
+/// 并合并自动创建的站点分组。规则与分组都为空时无操作。
 pub(crate) fn apply_auto_detect_rules(config: &mut Mapping) {
     let saved = read_saved_rules();
-    if saved.is_empty() {
+    let site_groups = read_site_groups();
+    if saved.is_empty() && site_groups.is_empty() {
         return;
     }
-    let key = Value::from("rules");
-    let mut merged: Vec<Value> = saved.into_iter().map(|s| Value::from(s.as_str())).collect();
-    match config.get_mut(&key) {
-        Some(Value::Sequence(seq)) => {
-            let mut old = std::mem::take(seq);
-            merged.append(&mut old);
-            *seq = merged;
+    // 合并规则（前置）
+    if !saved.is_empty() {
+        let key = Value::from("rules");
+        let mut merged: Vec<Value> =
+            saved.into_iter().map(|s| Value::from(s.as_str())).collect();
+        match config.get_mut(&key) {
+            Some(Value::Sequence(seq)) => {
+                let mut old = std::mem::take(seq);
+                merged.append(&mut old);
+                *seq = merged;
+            }
+            _ => {
+                config.insert(key, Value::Sequence(merged));
+            }
         }
-        _ => {
-            config.insert(key, Value::Sequence(merged));
+    }
+    // 合并站点分组（select 类型，成员为测通的节点）
+    if !site_groups.is_empty() {
+        let key = Value::from("proxy-groups");
+        let seq = match config.get_mut(&key) {
+            Some(Value::Sequence(seq)) => seq,
+            _ => return,
+        };
+        for (name, nodes) in &site_groups {
+            // 已存在同名分组则更新成员，否则追加
+            let mut found = false;
+            for g in seq.iter_mut() {
+                if let Value::Mapping(m) = g {
+                    if m.get("name").and_then(|n| n.as_str()) == Some(name.as_str()) {
+                        let proxies: Vec<Value> =
+                            nodes.iter().map(|n| Value::from(n.as_str())).collect();
+                        m.insert(Value::from("proxies"), Value::Sequence(proxies));
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if !found {
+                let mut m = Mapping::new();
+                m.insert(Value::from("name"), Value::from(name.as_str()));
+                m.insert(Value::from("type"), Value::from("select"));
+                let proxies: Vec<Value> =
+                    nodes.iter().map(|n| Value::from(n.as_str())).collect();
+                m.insert(Value::from("proxies"), Value::Sequence(proxies));
+                seq.push(Value::Mapping(m));
+            }
         }
     }
 }
