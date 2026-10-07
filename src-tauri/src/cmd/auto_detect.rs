@@ -3,7 +3,8 @@
 //! 工作流：前端监听 Mihomo 实时连接，对命中 `MATCH`（无规则覆盖）的新域名
 //! 调用 [`auto_detect_probe_domain`] 做直连探测；直连失败则判定为需代理，
 //! 调用 [`auto_detect_expand_domain`] 扩展相关域名，再经
-//! [`auto_detect_add_rules`] 落盘到 `auto-detect/rules.yaml`。
+//! [`auto_detect_add_rules`] 落盘到 `auto-detect/rules.yaml`（目标分组为 Proxy）。
+//! 另支持 [`auto_detect_add_manual_rule`]：用户手动输入网址检测后自选分组添加。
 //! enhance 管道在每次生成运行时配置时自动合并该文件（见
 //! [`apply_auto_detect_rules`]），无需改动用户已有的全局脚本。
 
@@ -19,8 +20,10 @@ use serde_yaml_ng::{Mapping, Value};
 use super::{CmdResult, CommandFailure};
 use crate::utils::dirs;
 
-/// 自动检测规则的目标分组。不存在时由 enhance 管道自动创建。
-pub(crate) const AUTO_DETECT_GROUP: &str = "国外新站";
+/// 自动检测规则的目标分组：直接使用内置的 Proxy 分组，不再自建分组。
+pub(crate) const AUTO_DETECT_GROUP: &str = "Proxy";
+/// 旧版本使用的分组名（已废弃）：读取时自动迁移为 Proxy。
+const LEGACY_AUTO_DETECT_GROUP: &str = "国外新站";
 /// 规则文件相对路径：<app_home>/auto-detect/rules.yaml
 const RULES_FILE: &str = "rules.yaml";
 /// 直连探测超时（秒）。
@@ -41,8 +44,23 @@ fn normalize_domain(domain: &str) -> String {
 }
 
 /// 读取已保存的规则行（去重、有序）。文件不存在或解析失败时返回空集。
+/// 旧版本写入的 `国外新站` 分组会自动迁移为 `Proxy`。
 fn read_saved_rules() -> BTreeSet<String> {
     read_string_set("rules")
+        .into_iter()
+        .map(|l| {
+            let mut parts = l.splitn(3, ',');
+            let (a, b, c) = (parts.next(), parts.next(), parts.next());
+            match (a, b, c) {
+                (Some("DOMAIN-SUFFIX"), Some(d), Some(g))
+                    if g.trim() == LEGACY_AUTO_DETECT_GROUP =>
+                {
+                    format!("DOMAIN-SUFFIX,{d},{AUTO_DETECT_GROUP}")
+                }
+                _ => l,
+            }
+        })
+        .collect()
 }
 
 /// 读取忽略名单。
@@ -209,7 +227,7 @@ async fn expand_related(client: &reqwest::Client, domain: &str) -> BTreeSet<Stri
     subs
 }
 
-/// 扩展相关域名，返回待写入的规则行（`DOMAIN-SUFFIX,<host>,国外新站`）。
+/// 扩展相关域名，返回待写入的规则行（`DOMAIN-SUFFIX,<host>,Proxy`）。
 #[tauri::command]
 pub async fn auto_detect_expand_domain(domain: String) -> CmdResult<Vec<String>> {
     let domain = normalize_domain(&domain);
@@ -245,6 +263,25 @@ pub async fn auto_detect_add_rules(lines: Vec<String>) -> CmdResult<usize> {
     }
     write_saved_rules(&saved).map_err(CommandFailure::plain)?;
     Ok(saved.len() - before)
+}
+
+/// 手动添加一条规则：用户在前端输入网址、检测后自选目标分组。
+/// 域名会被规范化；分组名原样保存（前端只提供已存在的分组）。
+#[tauri::command]
+pub async fn auto_detect_add_manual_rule(domain: String, group: String) -> CmdResult<()> {
+    let domain = normalize_domain(&domain);
+    let group = group.trim();
+    if domain.is_empty() || group.is_empty() {
+        return Ok(());
+    }
+    // 简单校验：分组名不含逗号/空白，避免写坏规则行
+    if group.contains([',', ' ', '\t', '\n']) {
+        return Err(CommandFailure::plain(anyhow::anyhow!("分组名非法")));
+    }
+    let mut saved = read_saved_rules();
+    saved.insert(format!("DOMAIN-SUFFIX,{domain},{group}"));
+    write_saved_rules(&saved).map_err(CommandFailure::plain)?;
+    Ok(())
 }
 
 /// 列出已保存的自动检测规则（供前端展示/去重）。
@@ -286,33 +323,8 @@ pub async fn auto_detect_list_ignored() -> CmdResult<Vec<String>> {
     Ok(read_ignored().into_iter().collect())
 }
 
-fn ensure_group(config: &mut Mapping) {
-    let key = Value::from("proxy-groups");
-    let seq = match config.get_mut(&key) {
-        Some(Value::Sequence(seq)) => seq,
-        _ => return, // 没有分组定义就不动，避免写坏配置
-    };
-    let exists = seq.iter().any(|g| match g {
-        Value::Mapping(m) => {
-            m.get("name").and_then(|n| n.as_str()) == Some(AUTO_DETECT_GROUP)
-        }
-        _ => false,
-    });
-    if exists {
-        return;
-    }
-    let mut m = Mapping::new();
-    m.insert(Value::from("name"), Value::from(AUTO_DETECT_GROUP));
-    m.insert(Value::from("type"), Value::from("select"));
-    m.insert(
-        Value::from("proxies"),
-        Value::Sequence(vec![Value::from("Proxy"), Value::from("DIRECT")]),
-    );
-    seq.push(Value::Mapping(m));
-}
-
-/// enhance 管道调用：在全局脚本之后合并自动检测规则（前置最高优先级），
-/// 并确保目标分组存在。规则文件不存在或为空时无操作。
+/// enhance 管道调用：在全局脚本之后合并自动检测/手动规则（前置最高优先级）。
+/// 规则文件不存在或为空时无操作。目标分组均为已存在的分组，不再自建分组。
 pub(crate) fn apply_auto_detect_rules(config: &mut Mapping) {
     let saved = read_saved_rules();
     if saved.is_empty() {
@@ -330,7 +342,6 @@ pub(crate) fn apply_auto_detect_rules(config: &mut Mapping) {
             config.insert(key, Value::Sequence(merged));
         }
     }
-    ensure_group(config);
 }
 
 #[cfg(test)]

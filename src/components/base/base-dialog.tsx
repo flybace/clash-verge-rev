@@ -19,6 +19,8 @@ interface Props {
   disableCancel?: boolean
   disableFooter?: boolean
   contentSx?: SxProps<Theme>
+  maxWidth?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | false
+  fullWidth?: boolean
   children?: ReactNode
   loading?: boolean
   onOk?: () => void
@@ -39,6 +41,8 @@ export const BaseDialog: React.FC<Props> = ({
   cancelBtn,
   disableEnforceFocus,
   contentSx,
+  maxWidth,
+  fullWidth,
   disableCancel,
   disableOk,
   disableFooter,
@@ -52,6 +56,8 @@ export const BaseDialog: React.FC<Props> = ({
       open={open}
       onClose={onClose}
       disableEnforceFocus={disableEnforceFocus}
+      maxWidth={maxWidth}
+      fullWidth={fullWidth}
     >
       <DialogTitle>{title}</DialogTitle>
 

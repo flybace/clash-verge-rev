@@ -42,6 +42,18 @@
       "direct-ok": "Direct OK",
       "added": "Added to proxy group",
       "failed": "Probe failed"
+    },
+    "manual": {
+      "placeholder": "Enter URL or domain, e.g. example.com",
+      "inputRequired": "Please enter a URL or domain first",
+      "probe": "Probe",
+      "directOk": "Direct OK, no proxy needed",
+      "needProxy": "Direct failed, proxy recommended",
+      "probeFailed": "Probe error",
+      "group": "Target group",
+      "add": "Add to group",
+      "added": "Rule added: {domain} -> {group}",
+      "addFailed": "Failed to add rule"
     }
   }
 }

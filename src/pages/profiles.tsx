@@ -893,39 +893,40 @@ const ProfilePage = () => {
         >
           {t('profiles.page.actions.import')}
         </Button>
-        {allPresets.length > 0 && (
-          <Select
-            multiple
-            size="small"
-            displayEmpty
-            value={importPresets}
-            onChange={(e) =>
-              setImportPresets(
-                typeof e.target.value === 'string'
-                  ? []
-                  : (e.target.value as string[]),
-              )
-            }
-            renderValue={(selected) =>
-              selected.length === 0
+        <Select
+          multiple
+          size="small"
+          displayEmpty
+          disabled={allPresets.length === 0}
+          value={importPresets}
+          onChange={(e) =>
+            setImportPresets(
+              typeof e.target.value === 'string'
+                ? []
+                : (e.target.value as string[]),
+            )
+          }
+          renderValue={(selected) =>
+            allPresets.length === 0
+              ? (t('profiles.page.importForm.presetEmpty') as string)
+              : selected.length === 0
                 ? (t('profiles.page.importForm.presetPlaceholder') as string)
                 : t('profiles.page.importForm.presetSelected', {
                     count: selected.length,
                   })
-            }
-            sx={{ maxWidth: 180, borderRadius: '6px' }}
-          >
-            {allPresets.map((p) => (
-              <MenuItem key={p.uid} value={p.uid}>
-                <Checkbox
-                  size="small"
-                  checked={importPresets.includes(p.uid)}
-                />
-                <ListItemText primary={p.name} />
-              </MenuItem>
-            ))}
-          </Select>
-        )}
+          }
+          sx={{ maxWidth: 180, borderRadius: '6px' }}
+        >
+          {allPresets.map((p) => (
+            <MenuItem key={p.uid} value={p.uid}>
+              <Checkbox
+                size="small"
+                checked={importPresets.includes(p.uid)}
+              />
+              <ListItemText primary={p.name} />
+            </MenuItem>
+          ))}
+        </Select>
         <Button
           variant="contained"
           size="small"

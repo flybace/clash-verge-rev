@@ -269,6 +269,10 @@ export async function autoDetectAddRules(lines: string[]) {
   return invoke<number>('auto_detect_add_rules', { lines })
 }
 
+export async function autoDetectAddManualRule(domain: string, group: string) {
+  return invoke<void>('auto_detect_add_manual_rule', { domain, group })
+}
+
 export async function autoDetectListRules() {
   return invoke<string[]>('auto_detect_list_rules')
 }

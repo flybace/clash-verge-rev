@@ -25,7 +25,8 @@
         "paste": "粘贴"
       },
       "presetPlaceholder": "选择预设（可选）",
-      "presetSelected": "已选 {count} 个预设"
+      "presetSelected": "已选 {count} 个预设",
+      "presetEmpty": "暂无预设"
     },
     "feedback": {
       "errors": {
@@ -127,7 +128,8 @@
         "useClashProxy": "使用内核代理更新",
         "acceptInvalidCerts": "允许无效证书（危险）",
         "allowAutoUpdate": "允许自动更新",
-        "scriptPresets": "脚本预设"
+        "scriptPresets": "脚本预设",
+        "scriptPresetsEmpty": "暂无预设，请先在设置页创建脚本预设"
       },
       "types": {
         "remote": "远程",

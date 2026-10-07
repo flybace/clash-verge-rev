@@ -29,12 +29,23 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const isIpLiteral = (h: string) =>
   /^\d{1,3}(\.\d{1,3}){3}$/.test(h) || h.includes(':')
 
+const ENABLED_STORAGE_KEY = 'clash-verge-rev:auto-detect-enabled'
+
+const loadEnabled = (): boolean => {
+  try {
+    return localStorage.getItem(ENABLED_STORAGE_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
 /**
  * 新域名自动检测：监听命中 MATCH（无规则覆盖）的新域名，
- * 直连探测失败则判定需代理，扩展相关域名后自动加入「国外新站」分组。
+ * 直连探测失败则判定需代理，扩展相关域名后自动加入 Proxy 分组。
+ * 开关状态持久化到 localStorage，切换页面/重启后保持。
  */
 export function useAutoDetect(active: IConnectionsItem[]) {
-  const [enabled, setEnabled] = useState(false)
+  const [enabled, setEnabledState] = useState<boolean>(loadEnabled)
   const [entries, setEntries] = useState<AutoDetectEntry[]>([])
   const seenRef = useRef<Set<string>>(new Set())
   const ignoredRef = useRef<Set<string>>(new Set())
@@ -168,6 +179,16 @@ export function useAutoDetect(active: IConnectionsItem[]) {
     },
     [],
   )
+
+  /** 开关：同步写入 localStorage，切换页面/重启后保持。 */
+  const setEnabled = useCallback((v: boolean) => {
+    setEnabledState(v)
+    try {
+      localStorage.setItem(ENABLED_STORAGE_KEY, v ? '1' : '0')
+    } catch {
+      /* 忽略 */
+    }
+  }, [])
 
   return { enabled, setEnabled, entries, ignoreDomain }
 }

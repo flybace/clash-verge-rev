@@ -8,6 +8,18 @@ export interface TranslationResources {
         detected: string
         hint: string
         ignore: string
+        manual: {
+          add: string
+          added: string
+          addFailed: string
+          directOk: string
+          group: string
+          inputRequired: string
+          needProxy: string
+          placeholder: string
+          probe: string
+          probeFailed: string
+        }
         status: {
           added: string
           'direct-ok': string
@@ -403,6 +415,7 @@ export interface TranslationResources {
             description: string
             httpTimeout: string
             scriptPresets: string
+            scriptPresetsEmpty: string
             subscriptionUrl: string
             type: string
             updateInterval: string
@@ -494,6 +507,7 @@ export interface TranslationResources {
             paste: string
           }
           placeholder: string
+          presetEmpty: string
           presetPlaceholder: string
           presetSelected: string
         }

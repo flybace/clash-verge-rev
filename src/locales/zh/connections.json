@@ -33,15 +33,27 @@
   },
   "autoDetect": {
     "title": "新域名自动检测",
-    "hint": "开启后，命中 MATCH（无规则覆盖）的新域名会自动做直连探测；直连失败则判定需代理，扩展相关域名后自动加入「国外新站」分组。探测为启发式，误判可用右侧按钮忽略。",
+    "hint": "开启后，命中 MATCH（无规则覆盖）的新域名会自动做直连探测；直连失败则判定需代理，扩展相关域名后自动加入 Proxy 分组。探测为启发式，误判可用右侧按钮忽略。",
     "detected": "已发现 {count} 个",
     "ignore": "忽略该域名（删除已加规则，不再自动添加）",
     "status": {
       "queued": "待检测",
       "probing": "探测中",
       "direct-ok": "直连正常",
-      "added": "已加入国外新站",
+      "added": "已加入 Proxy",
       "failed": "探测失败"
+    },
+    "manual": {
+      "placeholder": "输入网址或域名，如 example.com",
+      "inputRequired": "请先输入网址或域名",
+      "probe": "检测",
+      "directOk": "直连正常，无需代理",
+      "needProxy": "直连失败，建议走代理",
+      "probeFailed": "探测出错",
+      "group": "目标分组",
+      "add": "加入分组",
+      "added": "已添加规则：{domain} -> {group}",
+      "addFailed": "添加规则失败"
     }
   }
 }

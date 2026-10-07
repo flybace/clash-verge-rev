@@ -2,16 +2,33 @@ import {
   DeleteForeverRounded,
   InfoOutlinedRounded,
   RadarRounded,
+  SearchRounded,
 } from '@mui/icons-material'
 import {
   Box,
+  Button,
   Chip,
+  CircularProgress,
+  FormControl,
   IconButton,
+  InputLabel,
+  MenuItem,
+  Select,
   Switch,
+  TextField,
   Tooltip,
   Typography,
 } from '@mui/material'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+
+import { useProxiesData } from '@/providers/app-data-context'
+import {
+  autoDetectAddManualRule,
+  autoDetectProbeDomain,
+  restartCore,
+} from '@/services/cmds'
+import { showNotice } from '@/services/notice-service'
 
 import type {
   AutoDetectEntry,
@@ -24,6 +41,24 @@ const STATUS_COLOR: Record<AutoDetectStatus, 'default' | 'info' | 'success' | 'w
   'direct-ok': 'success',
   added: 'warning',
   failed: 'error',
+}
+
+/** 从用户输入中提取域名：支持裸域名或完整 URL。 */
+const extractDomain = (input: string): string => {
+  const s = input.trim().toLowerCase()
+  if (!s) return ''
+  try {
+    // 带协议头的按 URL 解析
+    if (s.includes('://')) return new URL(s).hostname.trim().replace(/\.$/, '')
+  } catch {
+    /* 继续按裸域名处理 */
+  }
+  return s
+    .split('/')[0]
+    .split(':')[0]
+    .split('?')[0]
+    .trim()
+    .replace(/\.$/, '')
 }
 
 interface Props {
@@ -40,6 +75,63 @@ export const AutoDetectPanel = ({
   ignoreDomain,
 }: Props) => {
   const { t } = useTranslation()
+  const { proxyView } = useProxiesData()
+
+  // 手动检测
+  const [manualInput, setManualInput] = useState('')
+  const [manualProbing, setManualProbing] = useState(false)
+  const [manualResult, setManualResult] = useState<
+    'idle' | 'direct-ok' | 'need-proxy' | 'error'
+  >('idle')
+  const [manualGroup, setManualGroup] = useState('Proxy')
+  const [manualAdding, setManualAdding] = useState(false)
+
+  const groupNames = useMemo(() => {
+    const names = (proxyView?.groups ?? []).map((g) => g.name).filter(Boolean)
+    const base = ['Proxy', 'DIRECT']
+    for (const n of names) if (!base.includes(n)) base.push(n)
+    return base
+  }, [proxyView])
+
+  const onManualProbe = async () => {
+    const domain = extractDomain(manualInput)
+    if (!domain) {
+      showNotice.error(t('connections.autoDetect.manual.inputRequired'))
+      return
+    }
+    setManualProbing(true)
+    setManualResult('idle')
+    try {
+      const directOk = await autoDetectProbeDomain(domain)
+      setManualResult(directOk ? 'direct-ok' : 'need-proxy')
+    } catch {
+      setManualResult('error')
+    } finally {
+      setManualProbing(false)
+    }
+  }
+
+  const onManualAdd = async () => {
+    const domain = extractDomain(manualInput)
+    if (!domain || !manualGroup) return
+    setManualAdding(true)
+    try {
+      await autoDetectAddManualRule(domain, manualGroup)
+      await restartCore().catch(() => {})
+      showNotice.success(
+        t('connections.autoDetect.manual.added', {
+          domain,
+          group: manualGroup,
+        }),
+      )
+      setManualInput('')
+      setManualResult('idle')
+    } catch (e) {
+      showNotice.error(t('connections.autoDetect.manual.addFailed'), e)
+    } finally {
+      setManualAdding(false)
+    }
+  }
 
   return (
     <Box
@@ -116,6 +208,105 @@ export const AutoDetectPanel = ({
           ))}
         </Box>
       )}
+
+      {/* 手动检测：输入网址 -> 探测 -> 自选分组添加 */}
+      <Box
+        sx={{
+          mt: 1,
+          pt: 1,
+          borderTop: 1,
+          borderColor: 'divider',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          flexWrap: 'wrap',
+        }}
+      >
+        <TextField
+          size="small"
+          sx={{ flex: '1 1 180px', minWidth: 140 }}
+          placeholder={t('connections.autoDetect.manual.placeholder')}
+          value={manualInput}
+          onChange={(e) => {
+            setManualInput(e.target.value)
+            setManualResult('idle')
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+              e.preventDefault()
+              void onManualProbe()
+            }
+          }}
+          slotProps={{
+            input: {
+              endAdornment: manualProbing ? (
+                <CircularProgress size={16} />
+              ) : undefined,
+            },
+          }}
+        />
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<SearchRounded />}
+          disabled={manualProbing || !manualInput.trim()}
+          onClick={() => void onManualProbe()}
+        >
+          {t('connections.autoDetect.manual.probe')}
+        </Button>
+        {manualResult === 'direct-ok' && (
+          <Chip
+            size="small"
+            color="success"
+            variant="outlined"
+            label={t('connections.autoDetect.manual.directOk')}
+          />
+        )}
+        {manualResult === 'need-proxy' && (
+          <Chip
+            size="small"
+            color="warning"
+            variant="outlined"
+            label={t('connections.autoDetect.manual.needProxy')}
+          />
+        )}
+        {manualResult === 'error' && (
+          <Chip
+            size="small"
+            color="error"
+            variant="outlined"
+            label={t('connections.autoDetect.manual.probeFailed')}
+          />
+        )}
+        {manualResult !== 'idle' && manualResult !== 'error' && (
+          <>
+            <FormControl size="small" sx={{ minWidth: 130 }}>
+              <InputLabel>
+                {t('connections.autoDetect.manual.group')}
+              </InputLabel>
+              <Select
+                value={manualGroup}
+                label={t('connections.autoDetect.manual.group')}
+                onChange={(e) => setManualGroup(e.target.value)}
+              >
+                {groupNames.map((n) => (
+                  <MenuItem key={n} value={n}>
+                    {n}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Button
+              size="small"
+              variant="contained"
+              disabled={manualAdding}
+              onClick={() => void onManualAdd()}
+            >
+              {t('connections.autoDetect.manual.add')}
+            </Button>
+          </>
+        )}
+      </Box>
     </Box>
   )
 }

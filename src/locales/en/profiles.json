@@ -25,7 +25,8 @@
         "paste": "Paste"
       },
       "presetPlaceholder": "Select presets (optional)",
-      "presetSelected": "{count} presets selected"
+      "presetSelected": "{count} presets selected",
+      "presetEmpty": "No presets"
     },
     "feedback": {
       "errors": {
@@ -127,7 +128,8 @@
         "useClashProxy": "Use Clash Proxy",
         "acceptInvalidCerts": "Allows Invalid Certificates (Danger)",
         "allowAutoUpdate": "Allow Auto Update",
-        "scriptPresets": "Script Presets"
+        "scriptPresets": "Script Presets",
+        "scriptPresetsEmpty": "No presets yet. Create one in Settings first."
       },
       "types": {
         "remote": "Remote",

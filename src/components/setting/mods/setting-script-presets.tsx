@@ -159,7 +159,10 @@ export const SettingScriptPresets = () => {
         open={!!editing}
         onOk={() => void onSave()}
         onClose={() => setEditing(null)}
-        contentSx={{ minWidth: { sm: 640 } }}
+        maxWidth="md"
+        fullWidth
+        disableEnforceFocus
+        contentSx={{ height: '70vh', display: 'flex', flexDirection: 'column' }}
       >
         <TextField
           fullWidth
@@ -167,14 +170,24 @@ export const SettingScriptPresets = () => {
           label={t('settings.scriptPresets.fields.name')}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          sx={{ mb: 1.5 }}
+          sx={{ mb: 1.5, flexShrink: 0 }}
         />
-        <Box sx={{ height: 420, border: 1, borderColor: 'divider' }}>
+        <Box
+          sx={{
+            flex: 1,
+            minHeight: 320,
+            border: 1,
+            borderColor: 'divider',
+            borderRadius: 1,
+            overflow: 'hidden',
+          }}
+        >
           <MonacoEditor
             height="100%"
             language="javascript"
             value={script}
             theme={themeMode === 'light' ? 'light' : 'vs-dark'}
+            loading={null}
             options={{ automaticLayout: true, tabSize: 2, minimap: { enabled: false } }}
             onChange={(v) => setScript(v ?? '')}
           />

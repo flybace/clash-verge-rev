@@ -2,8 +2,6 @@ import {
   Box,
   Checkbox,
   FormControl,
-  FormControlLabel,
-  FormGroup,
   InputAdornment,
   InputLabel,
   MenuItem,
@@ -455,40 +453,59 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
               control={control}
               render={({ field }) => {
                 const selected: string[] = field.value ?? []
-                const toggle = (uid: string) => {
-                  const next = selected.includes(uid)
-                    ? selected.filter((u) => u !== uid)
-                    : [...selected, uid]
-                  // 保持预设列表顺序
-                  const ordered = scriptPresets
-                    .map((p) => p.uid)
-                    .filter((u) => next.includes(u))
-                  field.onChange(ordered.length > 0 ? ordered : undefined)
-                }
                 return (
-                  <Box sx={{ mt: 1, mb: 1 }}>
-                    <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                  <FormControl size="small" fullWidth sx={{ mt: 1, mb: 1 }}>
+                    <InputLabel>
                       {t('profiles.modals.profileForm.fields.scriptPresets')}
-                    </Typography>
-                    <FormGroup>
+                    </InputLabel>
+                    <Select
+                      multiple
+                      label={t(
+                        'profiles.modals.profileForm.fields.scriptPresets',
+                      )}
+                      value={selected}
+                      onChange={(e) => {
+                        const next =
+                          typeof e.target.value === 'string'
+                            ? []
+                            : (e.target.value as string[])
+                        // 保持预设列表顺序
+                        const ordered = scriptPresets
+                          .map((p) => p.uid)
+                          .filter((u) => next.includes(u))
+                        field.onChange(
+                          ordered.length > 0 ? ordered : undefined,
+                        )
+                      }}
+                      renderValue={(vals) =>
+                        scriptPresets
+                          .filter((p) => (vals as string[]).includes(p.uid))
+                          .map((p) => p.name)
+                          .join('、') ||
+                        (t(
+                          'profiles.page.importForm.presetPlaceholder',
+                        ) as string)
+                      }
+                    >
                       {scriptPresets.map((p) => (
-                        <FormControlLabel
-                          key={p.uid}
-                          control={
-                            <Checkbox
-                              size="small"
-                              checked={selected.includes(p.uid)}
-                              onChange={() => toggle(p.uid)}
-                            />
-                          }
-                          label={p.name}
-                        />
+                        <MenuItem key={p.uid} value={p.uid}>
+                          <Checkbox
+                            size="small"
+                            checked={selected.includes(p.uid)}
+                          />
+                          <ListItemText primary={p.name} />
+                        </MenuItem>
                       ))}
-                    </FormGroup>
-                  </Box>
+                    </Select>
+                  </FormControl>
                 )
               }}
             />
+          )}
+          {scriptPresets.length === 0 && (
+            <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>
+              {t('profiles.modals.profileForm.fields.scriptPresetsEmpty')}
+            </Typography>
           )}
         </>
       )}
