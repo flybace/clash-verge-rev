@@ -613,7 +613,7 @@ async fn process_presets(
         }
         let before = authoritative.current(&config);
         let (res_config, changed_keys, mut logs) =
-            use_script(preset.script, config, profile_name.clone()).await;
+            use_script(preset.script.into(), config, profile_name.clone()).await;
         exists_keys.extend(changed_keys);
         config = res_config;
         logs.extend(
@@ -622,7 +622,7 @@ async fn process_presets(
                 .into_iter()
                 .map(discarded_note),
         );
-        result_map.insert(format!("preset:{uid}"), logs);
+        result_map.insert(format!("preset:{uid}").into(), logs);
     }
 
     (config, exists_keys, result_map)

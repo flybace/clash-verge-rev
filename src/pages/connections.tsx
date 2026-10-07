@@ -27,23 +27,23 @@ import {
   type SearchState,
   VirtualList,
 } from '@/components/base'
+import { AutoDetectPanel } from '@/components/connection/auto-detect-panel'
 import {
   ConnectionDetail,
   ConnectionDetailRef,
 } from '@/components/connection/connection-detail'
-import { AutoDetectPanel } from '@/components/connection/auto-detect-panel'
 import { ConnectionRowItem } from '@/components/connection/connection-row-item'
 import {
   getConnectionStartTime,
   useConnectionRowViews,
 } from '@/components/connection/connection-row-view'
 import { ConnectionTable } from '@/components/connection/connection-table'
-import { useConnectionData } from '@/hooks/use-connection-data'
 import { useAutoDetect } from '@/hooks/use-auto-detect'
-import { useProxiesData } from '@/providers/app-data-context'
+import { useConnectionData } from '@/hooks/use-connection-data'
 import { useConnectionSetting } from '@/hooks/use-connection-setting'
 import { useTrafficData } from '@/hooks/use-traffic-data'
 import { useVisibility } from '@/hooks/use-visibility'
+import { useProxiesData } from '@/providers/app-data-context'
 import parseTraffic from '@/utils/parse-traffic'
 
 type OrderFunc = (list: IConnectionsItem[]) => IConnectionsItem[]

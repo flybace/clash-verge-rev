@@ -26,6 +26,15 @@ pub static UPDATE_INTERVAL_MIGRATED: &str = ".update-interval-migrated";
 
 /// Uses the same platform data resolver as Tauri, including before its handle exists.
 pub fn app_home_dir() -> Result<PathBuf> {
+    #[cfg(windows)]
+    {
+        let executable = std::env::current_exe()?;
+        if let Some(directory) = executable.parent()
+            && directory.join("portable").is_file()
+        {
+            return Ok(directory.join("data"));
+        }
+    }
     ::dirs::data_dir()
         .map(|root| root.join(APP_ID))
         .ok_or_else(|| anyhow::anyhow!("Failed to get the app home directory"))

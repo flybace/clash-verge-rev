@@ -99,7 +99,7 @@ export const SettingScriptPresets = () => {
   return (
     <Box sx={{ p: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-        <Typography variant="subtitle1" fontWeight={600}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
           {t('settings.scriptPresets.title')}
         </Typography>
         <Box sx={{ flex: 1 }} />
@@ -158,6 +158,9 @@ export const SettingScriptPresets = () => {
         }
         open={!!editing}
         onOk={() => void onSave()}
+        okBtn={t('shared.actions.save')}
+        cancelBtn={t('shared.actions.cancel')}
+        onCancel={() => setEditing(null)}
         onClose={() => setEditing(null)}
         maxWidth="md"
         fullWidth

@@ -1,6 +1,6 @@
 import {
   DeleteForeverRounded,
-  InfoOutlinedRounded,
+  InfoOutlineRounded,
   RadarRounded,
   SearchRounded,
 } from '@mui/icons-material'
@@ -22,6 +22,10 @@ import {
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import type {
+  AutoDetectEntry,
+  AutoDetectStatus,
+} from '@/hooks/use-auto-detect'
 import { useProxiesData } from '@/providers/app-data-context'
 import {
   autoDetectAddManualRule,
@@ -30,10 +34,6 @@ import {
 } from '@/services/cmds'
 import { showNotice } from '@/services/notice-service'
 
-import type {
-  AutoDetectEntry,
-  AutoDetectStatus,
-} from '@/hooks/use-auto-detect'
 
 const STATUS_COLOR: Record<AutoDetectStatus, 'default' | 'info' | 'success' | 'warning' | 'error'> = {
   queued: 'default',
@@ -153,7 +153,7 @@ export const AutoDetectPanel = ({
           {t('connections.autoDetect.title')}
         </Typography>
         <Tooltip title={t('connections.autoDetect.hint')}>
-          <InfoOutlinedRounded fontSize="small" color="disabled" />
+          <InfoOutlineRounded fontSize="small" color="disabled" />
         </Tooltip>
         <Box sx={{ flex: 1 }} />
         {entries.length > 0 && (

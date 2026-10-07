@@ -54,7 +54,7 @@ export function useAutoDetect(
   active: IConnectionsItem[],
   proxyView: ProxyViewV1 | undefined,
 ) {
-  const [enabled, setEnabledState] = useState<boolean>(loadEnabled)
+  const [enabledState, setEnabledState] = useState<boolean>(loadEnabled)
   const [entries, setEntries] = useState<AutoDetectEntry[]>([])
   const seenRef = useRef<Set<string>>(new Set())
   const ignoredRef = useRef<Set<string>>(new Set())
@@ -186,17 +186,17 @@ export function useAutoDetect(
 
   // 开关打开时加载忽略名单
   useEffect(() => {
-    if (!enabled) return
+    if (!enabledState) return
     autoDetectListIgnored()
       .then((list) => {
         ignoredRef.current = new Set(list)
       })
       .catch(() => {})
-  }, [enabled ])
+  }, [enabledState])
 
   // 监听新连接：命中 MATCH 的未知域名入队
   useEffect(() => {
-    if (!enabled) return
+    if (!enabledState) return
     const fresh: string[] = []
     for (const c of active) {
       const host = (c.metadata?.host || '').trim().toLowerCase()
@@ -208,22 +208,24 @@ export function useAutoDetect(
     }
     if (fresh.length > 0) {
       queueRef.current.push(...fresh)
-      setEntries((prev) =>
-        [
-          ...fresh.map(
-            (domain): AutoDetectEntry => ({
-              domain,
-              status: 'queued',
-              added: 0,
-              updatedAt: Date.now(),
-            }),
-          ),
-          ...prev,
-        ].slice(0, 100),
-      )
+      queueMicrotask(() => {
+        setEntries((prev) =>
+          [
+            ...fresh.map(
+              (domain): AutoDetectEntry => ({
+                domain,
+                status: 'queued',
+                added: 0,
+                updatedAt: Date.now(),
+              }),
+            ),
+            ...prev,
+          ].slice(0, 100),
+        )
+      })
       void pump()
     }
-  }, [enabled, active, pump])
+  }, [enabledState, active, pump])
 
   /** 忽略域名：删除已加规则并加入忽略名单（不再自动添加）。 */
   const ignoreDomain = useCallback(
@@ -249,5 +251,5 @@ export function useAutoDetect(
     }
   }, [])
 
-  return { enabled, setEnabled, entries, ignoreDomain }
+  return { enabled: enabledState, setEnabled, entries, ignoreDomain }
 }

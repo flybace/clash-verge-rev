@@ -1,9 +1,12 @@
+import { CloseRounded } from '@mui/icons-material'
 import {
   Button,
+  Box,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
   type SxProps,
   type Theme,
 } from '@mui/material'
@@ -59,7 +62,22 @@ export const BaseDialog: React.FC<Props> = ({
       maxWidth={maxWidth}
       fullWidth={fullWidth}
     >
-      <DialogTitle>{title}</DialogTitle>
+      <DialogTitle
+        sx={{ display: 'flex', alignItems: 'center', gap: 1, pr: 1 }}
+      >
+        <Box sx={{ flex: 1, minWidth: 0 }}>{title}</Box>
+        {onClose && (
+          <IconButton
+            size="small"
+            edge="end"
+            aria-label="Close dialog"
+            title="Close"
+            onClick={onClose}
+          >
+            <CloseRounded fontSize="small" />
+          </IconButton>
+        )}
+      </DialogTitle>
 
       <DialogContent sx={contentSx}>{children}</DialogContent>
 
